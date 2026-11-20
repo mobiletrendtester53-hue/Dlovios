@@ -1,0 +1,575 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local petsFolder = LocalPlayer:WaitForChild("petsFolder")
+local sellEvent = ReplicatedStorage:WaitForChild("rEvents"):WaitForChild("sellPetEvent")
+
+if PlayerGui:FindFirstChild("BossMenuGui") then
+    PlayerGui.BossMenuGui:Destroy()
+end
+
+if PlayerGui:FindFirstChild("GioCircleGui") then
+    PlayerGui.GioCircleGui:Destroy()
+end
+
+local CORRECT_HASH = "8f3889656839bb892ee3e30f146603a1"
+
+local autoBossEnabled = false
+local autoCollectEnabled = false
+local autoSellEnabled = false
+local autoBuyEnabled = false
+local isHidden = false
+
+local targetPets = {
+    ["Cosmic Invader"] = true,
+    ["Alien Slime"] = true
+}
+
+local prePortalPosition = Vector3.new(7.515656471252441, 14.683902740478516, -78.0965576171875)
+local descentPosition = Vector3.new(-1836.67, 84.76, -10974.69)
+local shopPosition = Vector3.new(-1887.23, 60.26, -10523.55)
+
+local function getBoss()
+    return workspace:FindFirstChild("AlienBoss") or workspace:FindFirstChild("Boss") or workspace:FindFirstChild("Alien Boss")
+end
+
+local function getBossPosition()
+    local boss = getBoss()
+    if boss then
+        local hrp = boss:FindFirstChild("HumanoidRootPart") or boss:FindFirstChild("Head") or boss:FindFirstChild("Torso")
+        if hrp then
+            return Vector3.new(hrp.Position.X, 150.17737007141113, hrp.Position.Z)
+        end
+    end
+    return Vector3.new(-1836.6787109375, 150.17737007141113, -10974.6865234375)
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BossMenuGui"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = PlayerGui
+
+local circleGui = Instance.new("ScreenGui")
+circleGui.Name = "GioCircleGui"
+circleGui.ResetOnSpawn = false
+circleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+circleGui.Parent = PlayerGui
+
+local gioButton = Instance.new("TextButton")
+gioButton.Name = "GioButton"
+gioButton.Size = UDim2.new(0, 50, 0, 50)
+gioButton.Position = UDim2.new(0, 20, 0, 100)
+gioButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+gioButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+gioButton.Text = "Gio"
+gioButton.TextSize = 14
+gioButton.Font = Enum.Font.GothamBold
+gioButton.Active = true
+gioButton.Draggable = true
+gioButton.Parent = circleGui
+
+local gioCorner = Instance.new("UICorner")
+gioCorner.CornerRadius = UDim.new(1, 0)
+gioCorner.Parent = gioButton
+
+local passwordFrame = Instance.new("Frame")
+passwordFrame.Name = "PasswordFrame"
+passwordFrame.Size = UDim2.new(0, 280, 0, 150)
+passwordFrame.Position = UDim2.new(0.5, -140, 0.5, -75)
+passwordFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+passwordFrame.BorderSizePixel = 0
+passwordFrame.Active = true
+passwordFrame.Draggable = true
+passwordFrame.Parent = screenGui
+
+local passCorner = Instance.new("UICorner")
+passCorner.CornerRadius = UDim.new(0, 12)
+passCorner.Parent = passwordFrame
+
+local passTitle = Instance.new("TextLabel")
+passTitle.Size = UDim2.new(1, 0, 0, 35)
+passTitle.BackgroundTransparency = 1
+passTitle.Text = "ВВЕДИТЕ ПАРОЛЬ"
+passTitle.TextColor3 = Color3.fromRGB(255, 50, 50)
+passTitle.TextSize = 16
+passTitle.Font = Enum.Font.GothamBold
+passTitle.Parent = passwordFrame
+
+local passwordBox = Instance.new("TextBox")
+passwordBox.Size = UDim2.new(1, -40, 0, 35)
+passwordBox.Position = UDim2.new(0, 20, 0, 45)
+passwordBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+passwordBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+passwordBox.PlaceholderText = "Пароль..."
+passwordBox.Text = ""
+passwordBox.TextSize = 14
+passwordBox.Font = Enum.Font.Gotham
+passwordBox.ClearTextOnFocus = false
+passwordBox.Parent = passwordFrame
+
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 8)
+boxCorner.Parent = passwordBox
+
+local submitButton = Instance.new("TextButton")
+submitButton.Size = UDim2.new(1, -40, 0, 35)
+submitButton.Position = UDim2.new(0, 20, 0, 95)
+submitButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+submitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+submitButton.Text = "Войти"
+submitButton.TextSize = 14
+submitButton.Font = Enum.Font.GothamBold
+submitButton.Parent = passwordFrame
+
+local submitCorner = Instance.new("UICorner")
+submitCorner.CornerRadius = UDim.new(0, 8)
+submitCorner.Parent = submitButton
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 300, 0, 235)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -115)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 35)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "BOSS & PETS"
+titleLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+titleLabel.TextSize = 18
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Parent = mainFrame
+
+local toggleBossButton = Instance.new("TextButton")
+toggleBossButton.Name = "ToggleBossButton"
+toggleBossButton.Size = UDim2.new(1, -40, 0, 30)
+toggleBossButton.Position = UDim2.new(0, 20, 0, 40)
+toggleBossButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+toggleBossButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBossButton.Text = "Auto Boss: OFF"
+toggleBossButton.TextSize = 12
+toggleBossButton.Font = Enum.Font.GothamBold
+toggleBossButton.Parent = mainFrame
+
+local bossCorner = Instance.new("UICorner")
+bossCorner.CornerRadius = UDim.new(0, 8)
+bossCorner.Parent = toggleBossButton
+
+local toggleCollectButton = Instance.new("TextButton")
+toggleCollectButton.Name = "ToggleCollectButton"
+toggleCollectButton.Size = UDim2.new(1, -40, 0, 30)
+toggleCollectButton.Position = UDim2.new(0, 20, 0, 75)
+toggleCollectButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+toggleCollectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleCollectButton.Text = "Auto Collect: OFF"
+toggleCollectButton.TextSize = 12
+toggleCollectButton.Font = Enum.Font.GothamBold
+toggleCollectButton.Parent = mainFrame
+
+local collectCorner = Instance.new("UICorner")
+collectCorner.CornerRadius = UDim.new(0, 8)
+collectCorner.Parent = toggleCollectButton
+
+local toggleSellButton = Instance.new("TextButton")
+toggleSellButton.Name = "ToggleSellButton"
+toggleSellButton.Size = UDim2.new(1, -40, 0, 30)
+toggleSellButton.Position = UDim2.new(0, 20, 0, 110)
+toggleSellButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+toggleSellButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleSellButton.Text = "Auto Sell Pets: OFF"
+toggleSellButton.TextSize = 12
+toggleSellButton.Font = Enum.Font.GothamBold
+toggleSellButton.Parent = mainFrame
+
+local sellCorner = Instance.new("UICorner")
+sellCorner.CornerRadius = UDim.new(0, 8)
+sellCorner.Parent = toggleSellButton
+
+local toggleBuyButton = Instance.new("TextButton")
+toggleBuyButton.Name = "ToggleBuyButton"
+toggleBuyButton.Size = UDim2.new(1, -40, 0, 30)
+toggleBuyButton.Position = UDim2.new(0, 20, 0, 145)
+toggleBuyButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+toggleBuyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBuyButton.Text = "Buy Pet: OFF"
+toggleBuyButton.TextSize = 12
+toggleBuyButton.Font = Enum.Font.GothamBold
+toggleBuyButton.Parent = mainFrame
+
+local buyCorner = Instance.new("UICorner")
+buyCorner.CornerRadius = UDim.new(0, 8)
+buyCorner.Parent = toggleBuyButton
+
+gioButton.MouseButton1Click:Connect(function()
+    isHidden = not isHidden
+    if isHidden then
+        screenGui.Enabled = false
+        gioButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    else
+        screenGui.Enabled = true
+        gioButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+    end
+end)
+
+submitButton.MouseButton1Click:Connect(function()
+    local enteredHash = ""
+    if identifyexecutor then
+        pcall(function()
+            if syn and syn.crypt then
+                enteredHash = syn.crypt.hash(passwordBox.Text)
+            elseif crypt and crypt.hash then
+                enteredHash = crypt.hash(passwordBox.Text)
+            end
+        end)
+    end
+    
+    if enteredHash == CORRECT_HASH or passwordBox.Text == "ImpDlovio" then
+        passwordFrame:Destroy()
+        mainFrame.Visible = true
+    else
+        passwordBox.Text = ""
+        passwordBox.PlaceholderText = "Неверный пароль!"
+        submitButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        task.wait(0.8)
+        if submitButton and submitButton.Parent then
+            submitButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+            passwordBox.PlaceholderText = "Пароль..."
+        end
+    end
+end)
+
+local function ensurePunchEquipped()
+    local character = LocalPlayer.Character
+    if not character then return nil end
+
+    local punch = character:FindFirstChild("Punch") or LocalPlayer.Backpack:FindFirstChild("Punch")
+    if punch then
+        if (punch.Parent ~= character) then
+            punch.Parent = character
+        end
+        if punch:FindFirstChild("attackTime") then
+            punch.attackTime.Value = 0
+        end
+        return punch
+    end
+
+    for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+        if (tool.Name == "Punch") then
+            tool.Parent = character
+            if tool:FindFirstChild("attackTime") then
+                tool.attackTime.Value = 0
+            end
+            return tool
+        end
+    end
+    return nil
+end
+
+local function autoPunch()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    local punch = ensurePunchEquipped()
+    
+    pcall(function()
+        LocalPlayer.muscleEvent:FireServer("punch", "rightHand")
+        LocalPlayer.muscleEvent:FireServer("punch", "leftHand")
+    end)
+
+    if (punch and (punch.Parent == character)) then
+        pcall(function()
+            punch:Activate()
+        end)
+    end
+end
+
+local function pullToBossHead()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid then return end
+
+    humanoid.PlatformStand = true
+    
+    local targetPos = getBossPosition()
+    hrp.CFrame = CFrame.new(targetPos) * CFrame.Angles(math.rad(-90), 0, 0)
+    
+    hrp.Velocity = Vector3.zero
+    hrp.RotVelocity = Vector3.zero
+end
+
+local function travelToPortal()
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local hrp = character.HumanoidRootPart
+        hrp.CFrame = CFrame.new(prePortalPosition)
+        hrp.Velocity = Vector3.zero
+    end
+    task.wait(0.3)
+    
+    pcall(function()
+        local args = {
+            "travelToArea",
+            workspace:WaitForChild("areaCircles"):WaitForChild("alienGymCircle")
+        }
+        ReplicatedStorage:WaitForChild("rEvents"):WaitForChild("areaTravelRemote"):InvokeServer(unpack(args))
+    end)
+    task.wait(1.5)
+end
+
+local function pressKeyE()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    task.wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+end
+
+local function sellPet(petInstance)
+    if not autoSellEnabled then return end
+    
+    if petInstance:IsA("StringValue") and targetPets[petInstance.Name] then
+        task.wait(0.1)
+        if petInstance and petInstance.Parent then
+            sellEvent:FireServer("sellPet", petInstance)
+        end
+    end
+end
+
+toggleBossButton.MouseButton1Click:Connect(function()
+    autoBossEnabled = not autoBossEnabled
+    
+    if autoBossEnabled then
+        toggleBossButton.Text = "Auto Boss: ON"
+        toggleBossButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        
+        task.spawn(function()
+            travelToPortal()
+            pullToBossHead()
+            
+            while autoBossEnabled do
+                local character = LocalPlayer.Character
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                
+                local boss = getBoss()
+                local bossHumanoid = boss and boss:FindFirstChildOfClass("Humanoid")
+                
+                local bossIsAlive = false
+                if boss and bossHumanoid then
+                    if bossHumanoid.Health > 0 then
+                        bossIsAlive = true
+                    end
+                elseif boss and not bossHumanoid then
+                    bossIsAlive = true
+                end
+
+                if bossIsAlive then
+                    if character and humanoid and humanoid.Health > 0 then
+                        pullToBossHead()
+                        autoPunch()
+                    end
+                else
+                    if character and character:FindFirstChild("HumanoidRootPart") then
+                        local hrp = character.HumanoidRootPart
+                        if humanoid then humanoid.PlatformStand = false end
+                        hrp.CFrame = CFrame.new(descentPosition)
+                        hrp.Velocity = Vector3.zero
+                    end
+                    
+                    repeat
+                        task.wait(1)
+                        boss = getBoss()
+                        bossHumanoid = boss and boss:FindFirstChildOfClass("Humanoid")
+                    until not autoBossEnabled or (boss and (not bossHumanoid or bossHumanoid.Health > 0))
+                    
+                    if autoBossEnabled then
+                        task.wait(1)
+                        pullToBossHead()
+                    end
+                end
+                
+                task.wait(0.05)
+            end
+            
+            local character = LocalPlayer.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then humanoid.PlatformStand = false end
+            end
+        end)
+    else
+        toggleBossButton.Text = "Auto Boss: OFF"
+        toggleBossButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+        
+        local character = LocalPlayer.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then humanoid.PlatformStand = false end
+        end
+    end
+end)
+
+toggleCollectButton.MouseButton1Click:Connect(function()
+    autoCollectEnabled = not autoCollectEnabled
+    
+    if autoCollectEnabled then
+        toggleCollectButton.Text = "Auto Collect: ON"
+        toggleCollectButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        
+        task.spawn(function()
+            while autoCollectEnabled do
+                local function waitForBossDead()
+                    while autoCollectEnabled do
+                        local boss = getBoss()
+                        local bossHumanoid = boss and boss:FindFirstChildOfClass("Humanoid")
+                        if not boss or (bossHumanoid and bossHumanoid.Health <= 0) then
+                            return true
+                        end
+                        task.wait(1)
+                    end
+                    return false
+                end
+
+                if not waitForBossDead() then break end
+
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    if humanoid then humanoid.PlatformStand = false end
+                    hrp.CFrame = CFrame.new(descentPosition)
+                    hrp.Velocity = Vector3.zero
+                end
+                task.wait(0.5)
+
+                pressKeyE()
+                task.wait(0.4)
+
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    character.HumanoidRootPart.CFrame = CFrame.new(shopPosition)
+                    character.HumanoidRootPart.Velocity = Vector3.zero
+                end
+                task.wait(1)
+
+                while autoCollectEnabled do
+                    local boss = getBoss()
+                    local bossHumanoid = boss and boss:FindFirstChildOfClass("Humanoid")
+                    if boss and (not bossHumanoid or bossHumanoid.Health > 0) then
+                        break
+                    end
+                    task.wait(1)
+                end
+            end
+        end)
+    else
+        toggleCollectButton.Text = "Auto Collect: OFF"
+        toggleCollectButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+    end
+end)
+
+toggleSellButton.MouseButton1Click:Connect(function()
+    autoSellEnabled = not autoSellEnabled
+    
+    if autoSellEnabled then
+        toggleSellButton.Text = "Auto Sell Pets: ON"
+        toggleSellButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        
+        task.spawn(function()
+            for _, item in ipairs(petsFolder:GetDescendants()) do
+                if not autoSellEnabled then break end
+                task.spawn(sellPet, item)
+            end
+        end)
+    else
+        toggleSellButton.Text = "Auto Sell Pets: OFF"
+        toggleSellButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+    end
+end)
+
+toggleBuyButton.MouseButton1Click:Connect(function()
+    autoBuyEnabled = not autoBuyEnabled
+    
+    if autoBuyEnabled then
+        toggleBuyButton.Text = "Buy Pet: ON"
+        toggleBuyButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        
+        task.spawn(function()
+            while autoBuyEnabled do
+                local function waitForBossDead()
+                    while autoBuyEnabled do
+                        local boss = getBoss()
+                        local bossHumanoid = boss and boss:FindFirstChildOfClass("Humanoid")
+                        if not boss or (bossHumanoid and bossHumanoid.Health <= 0) then
+                            return true
+                        end
+                        task.wait(1)
+                    end
+                    return false
+                end
+
+                if not waitForBossDead() then break end
+
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    if humanoid then humanoid.PlatformStand = false end
+                    hrp.CFrame = CFrame.new(descentPosition)
+                    hrp.Velocity = Vector3.zero
+                end
+                task.wait(0.5)
+
+                pressKeyE()
+                task.wait(0.4)
+
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    character.HumanoidRootPart.CFrame = CFrame.new(shopPosition)
+                    character.HumanoidRootPart.Velocity = Vector3.zero
+                end
+                task.wait(0.5)
+
+                pressKeyE()
+                task.wait(0.5)
+
+                local function getShopBoss()
+                    local boss = getBoss()
+                    local bossHumanoid = boss and boss:FindFirstChildOfClass("Humanoid")
+                    return boss and (not bossHumanoid or bossHumanoid.Health > 0)
+                end
+
+                while autoBuyEnabled and not getShopBoss() do
+                    pcall(function()
+                        script_args = {
+                            "UFOAxolotl"
+                        }
+                        ReplicatedStorage:WaitForChild("packages"):WaitForChild("Net"):WaitForChild("RF/AlienShop"):InvokeServer(unpack(script_args))
+  end)
+                    task.wait(1)
+                end
+            end
+        end)
+    else
+        toggleBuyButton.Text = "Buy Pet: OFF"
+        toggleBuyButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+    end
+end)
+
+petsFolder.DescendantAdded:Connect(function(newItem)
+    if autoSellEnabled then
+        sellPet(newItem)
+    end
+end)
